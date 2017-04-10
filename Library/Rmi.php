@@ -16,6 +16,11 @@ class Rmi
 
 		// Handle Data
 		$this->handleRequest($handleData);
+
+		if(!$this->isHandleDataValid(array('type'))) {
+			throw new \Exception('One of required field is missing!');
+		}
+
 	}
 
 	protected function setHandleData($key = null, $value = null)
@@ -120,11 +125,11 @@ class Rmi
 		;
 	}
 
-	// TODO: not ready to use
-	protected function generateHashKey($params = null)
+	protected function generateHashKey($pattern = null)
 	{
-		if ($params !== null && is_array($params) || count($params) > 0) {
-			return implode(':', $params);
+		$keys = $this->getHandleDataValue('keys');
+		if(count($keys) > 0) {
+
 		}
 
 		return $params;

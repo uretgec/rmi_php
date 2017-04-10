@@ -11,11 +11,16 @@ class RmiStorage extends Rmi
 	{
 		parent::__construct();
 
+		// TODO: isHandleDataValid function needed
+
 		// rmi:[type]:cached
 		$this->redisKey = $this->generateKey(array(
 			$this->getHandleDataValue('type'),
 			'storage'
 		));
+
+		// Default Pattern: [key][id]
+		$this->redisIndexKey = $this->generateHashKey($this->getHandleDataValue('storage_pattern'));
 	}
 
 	public function find()
@@ -30,7 +35,7 @@ class RmiStorage extends Rmi
 
 	public function update($storageData = null, $lifetime = 360)
 	{
-
+		// TODO: hey stop here
 	}
 
 	public function delete()

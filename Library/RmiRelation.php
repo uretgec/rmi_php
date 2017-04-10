@@ -10,6 +10,8 @@ class RmiRelation extends Rmi
 	{
 		parent::__construct();
 
+		// TODO: isHandleDataValid function needed
+
 		// rmi:[type]:cached
 		$this->redisKey = $this->generateKey(array(
 			$this->getHandleDataValue('type'),

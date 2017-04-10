@@ -10,6 +10,8 @@ class RmiLimit extends Rmi
 	{
 		parent::__construct();
 
+		// TODO: isHandleDataValid function needed
+
 		// rmi:[type]
 		$this->redisKey = $this->generateKey($this->getHandleDataValue('type'));
 
