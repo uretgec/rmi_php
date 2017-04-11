@@ -1,5 +1,5 @@
 <?php
-namespace Rmi\Library;
+namespace Rmi\Library\Adapter;
 
 class RmiCache extends Rmi
 {
@@ -27,13 +27,12 @@ class RmiCache extends Rmi
 		$cacheData = $this->redis->hGet($this->redisKey, $this->redisIndexKey);
 		if ($cacheData) {
 			// Check Cache Lifetime finished
-			preg_match('/^([^:]+)/', $cacheData, $lifetime);
-			if ($lifetime < time()) {
+			if ($this->findLifetime($cacheData) < time()) {
 				$this->delete();
 			}
 
 			// Decode Data
-			$cacheData = json_decode($this->findPattern($cacheData), true);
+			$cacheData = json_decode($this->findData($cacheData), true);
 		}
 
 		return $cacheData;

@@ -1,5 +1,5 @@
 <?php
-namespace Rmi\Library;
+namespace Rmi\Library\Adapter;
 
 class RmiLimit extends Rmi
 {
@@ -25,7 +25,7 @@ class RmiLimit extends Rmi
 		$indexList = $this->redis->zRevRangeByScore($this->redisKey, $this->redisIndexKey, $this->redisIndexKey, array('withscores' => false, 'limit' => array($offset, $limit)));
 		if (count($indexList) > 0) {
 			foreach ($indexList as $indexItem) {
-				$indexData[] = json_decode($this->findPattern($indexItem), true);
+				$indexData[] = json_decode($this->findData($indexItem), true);
 			}
 		}
 

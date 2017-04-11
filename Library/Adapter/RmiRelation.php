@@ -1,5 +1,5 @@
 <?php
-namespace Rmi\Library;
+namespace Rmi\Library\Adapter;
 
 class RmiRelation extends Rmi
 {

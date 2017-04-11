@@ -1,11 +1,12 @@
 <?php
-namespace Rmi\Library;
+namespace Rmi\Library\Adapter;
 
 // TODO: not finished.
 class RmiStorage extends Rmi
 {
 	private $redisKey = null;
 	private $redisIndexKey = null;
+	private $redisDeleteIndexKey = null;
 
 	public function __construct()
 	{
@@ -33,16 +34,16 @@ class RmiStorage extends Rmi
 		return $storageData;
 	}
 
-	public function update($storageData = null, $lifetime = 360)
+	public function update($storageData = null)
 	{
 		// TODO: hey stop here
 	}
 
 	public function delete()
 	{
-		return (is_array($this->redisIndexKey))
-			? call_user_func_array(array($this->redis, 'hDel'), array_merge($this->redisKey, $this->redisIndexKey))
-			: $this->redis->hDel($this->redisKey, $this->redisIndexKey)
+		return (is_array($this->redisDeleteIndexKey))
+			? call_user_func_array(array($this->redis, 'hDel'), array_merge($this->redisKey, $this->redisDeleteIndexKey))
+			: $this->redis->hDel($this->redisKey, $this->redisDeleteIndexKey)
 		;
 	}
 

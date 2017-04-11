@@ -1,11 +1,8 @@
 <?php
-namespace Rmi\Library;
+namespace Rmi\Library\Adapter;
 
-class Rmi
+class RmiBase
 {
-	// Constants
-	const REDIS_PREFIX = 'rmi:';
-
 	public $redis = null;
 	protected $handleData = null;
 
@@ -18,12 +15,11 @@ class Rmi
 		$this->handleRequest($handleData);
 
 		if(!$this->isHandleDataValid(array('type'))) {
-			throw new \Exception('One of required field is missing!');
+			throw new \Exception('Required fields are missing!');
 		}
-
 	}
 
-	protected function setHandleData($key = null, $value = null)
+	public function setHandleData($key = null, $value = null)
 	{
 		if($key === null) {
 			return $this->handleData = $value;
@@ -87,19 +83,6 @@ class Rmi
 		return true;
 	}
 
-	/*
-	 * Redis Client Library
-	 * https://github.com/phpredis/phpredis
-	 * */
-	protected function connect()
-	{
-		$redis = new \Redis();
-		$redis->setOption(\Redis::OPT_PREFIX, self::REDIS_PREFIX);
-		$redis->pconnect('127.0.0.1', '6379');
-
-		return $redis;
-	}
-
 	protected function getMicroTime()
 	{
 		list($usec, $sec) = explode(" ", microtime());
@@ -128,11 +111,13 @@ class Rmi
 	protected function generateHashKey($pattern = null)
 	{
 		$keys = $this->getHandleDataValue('keys');
-		if(count($keys) > 0) {
-
+		if(is_array($keys) && count($keys) > 0) {
+			foreach ($keys as $key => $type) {
+				$hashKeys[] = $this->generatePatternKey($pattern);
+			}
 		}
 
-		return $params;
+		return $hashKeys;
 	}
 
 	protected function generatePatternKey($pattern = null)
@@ -150,9 +135,14 @@ class Rmi
 		return $this->generateKey($pattern);
 	}
 
-	protected function findPattern($indexItem = null)
+	protected function findData($indexItem = null)
 	{
 		return preg_replace('/^([^:]+):/', '', $indexItem);
+	}
+
+	protected function findLifetime($indexItem = null)
+	{
+		return preg_match('/^([^:]+)/', $indexItem, $lifeTime);
 	}
 
 	public function normalizer($data = null, $stringKeys = null, $intKeys = null, $booleanKeys = null)
