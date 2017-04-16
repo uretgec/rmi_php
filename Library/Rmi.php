@@ -220,7 +220,12 @@ class Rmi
 	public function findByLimit($offset = 0, $limit = 10)
 	{
 		$indexData = array();
-		$indexList = $this->redis->zRevRangeByScore($this->redisKey, $this->redisIndexKey, $this->redisIndexKey, array('withscores' => false, 'limit' => array($offset, $limit)));
+		$indexList = $this->redis->zRevRangeByScore(
+			$this->redisKey[self::REDIS_KEY_LIMIT],
+			$this->redisIndexKey[self::REDIS_KEY_LIMIT],
+			$this->redisIndexKey[self::REDIS_KEY_LIMIT],
+			array('withscores' => false, 'limit' => array($offset, $limit))
+		);
 		if (count($indexList) > 0) {
 			foreach ($indexList as $indexItem) {
 				$indexData[] = json_decode($this->findData($indexItem), true);
@@ -239,7 +244,11 @@ class Rmi
 	public function updateByLimit($data = null)
 	{
 		if( $this->getHandleDataValue('id') !== null || $data !== null) {
-			$this->redis->zAdd($this->redisKey, $this->redisIndexKey, $this->getMicroTime() . ':' . json_encode($data));
+			$this->redis->zAdd(
+				$this->redisKey[self::REDIS_KEY_LIMIT],
+				$this->redisIndexKey[self::REDIS_KEY_LIMIT],
+				$this->getMicroTime() . ':' . json_encode($data)
+			);
 			$this->deleteByLimit();
 		}
 	}
@@ -248,23 +257,38 @@ class Rmi
 	{
 		// Always delete first (max) data
 		if($this->getHandleDataValue('id') !== null && $this->countByLimit() > $this->getHandleDataValue('max')) {
-			$deletedIndex = $this->redis->zRangeByScore($this->redisKey, $this->redisIndexKey, $this->redisIndexKey, array('withscores' => false, 'limit' => array(0, 1)));
+			$deletedIndex = $this->redis->zRangeByScore(
+				$this->redisKey[self::REDIS_KEY_LIMIT],
+				$this->redisIndexKey[self::REDIS_KEY_LIMIT],
+				$this->redisIndexKey[self::REDIS_KEY_LIMIT],
+				array('withscores' => false, 'limit' => array(0, 1))
+			);
 			if(count($deletedIndex) > 0) {
-				$this->redis->zRem($this->redisKey, current($deletedIndex));
+				$this->redis->zRem(
+					$this->redisKey[self::REDIS_KEY_LIMIT],
+					current($deletedIndex)
+				);
 			}
 		}
 	}
 
 	public function countByLimit()
 	{
-		return $this->redis->zCount($this->redisKey, $this->redisIndexKey, $this->redisIndexKey);
+		return $this->redis->zCount(
+			$this->redisKey[self::REDIS_KEY_LIMIT],
+			$this->redisIndexKey[self::REDIS_KEY_LIMIT],
+			$this->redisIndexKey[self::REDIS_KEY_LIMIT]
+		);
 	}
 	// RmiLimit Functions
 
 	// RmiCache Functions
 	public function findByCache()
 	{
-		$cacheData = $this->redis->hGet($this->redisKey, $this->redisIndexKey);
+		$cacheData = $this->redis->hGet(
+			$this->redisKey[self::REDIS_KEY_CACHE],
+			$this->redisIndexKey[self::REDIS_KEY_CACHE]
+		);
 		if ($cacheData) {
 			// Check Cache Lifetime finished
 			if ($this->findLifetime($cacheData) < time()) {
@@ -281,56 +305,94 @@ class Rmi
 	public function updateByCache($cacheData = null, $lifetime = 360)
 	{
 		if($cacheData !== null && is_array($cacheData) && count($cacheData) > 0 && $lifetime > 0) {
-			$this->redis->hSet($this->redisKey, $this->redisIndexKey, (time()+$lifetime) . ':' . json_encode($cacheData));
+			$this->redis->hSet(
+				$this->redisKey[self::REDIS_KEY_CACHE],
+				$this->redisIndexKey[self::REDIS_KEY_CACHE],
+				(time()+$lifetime) . ':' . json_encode($cacheData)
+			);
 		}
 	}
 
 	public function deleteByCache()
 	{
-		return $this->redis->hDel($this->redisKey, $this->redisIndexKey);
+		return $this->redis->hDel(
+			$this->redisKey[self::REDIS_KEY_CACHE],
+			$this->redisIndexKey[self::REDIS_KEY_CACHE]
+		);
 	}
 
 	public function countByCache()
 	{
-		return $this->redis->hLen($this->redisKey);
+		return $this->redis->hLen(
+			$this->redisKey[self::REDIS_KEY_CACHE]
+		);
 	}
-
 	// RmiCache Functions
 
 	// RmiStorage Functions
 	public function findByStorage()
 	{
-		$storageData = (is_array($this->redisIndexKey))
-			? $this->redis->hMGet($this->redisKey, $this->redisIndexKey)
-			: $this->redis->hGet($this->redisKey, $this->redisIndexKey)
+		$storageData = (is_array($this->redisIndexKey[self::REDIS_KEY_STORAGE]))
+			? $this->redis->hMGet($this->redisKey[self::REDIS_KEY_STORAGE], array_values($this->redisIndexKey[self::REDIS_KEY_STORAGE]))
+			: $this->redis->hGet($this->redisKey[self::REDIS_KEY_STORAGE], $this->redisIndexKey[self::REDIS_KEY_STORAGE])
 		;
 
 		return $storageData;
 	}
 
+	// TODO: stopped here
 	public function updateByStorage($storageData = null)
 	{
-		// TODO: hey stop here
+		$keys = $this->getHandleDataValue('keys');
+		foreach ($storageData as $key => $value) {
+			if(isset($keys[$key]) && !empty($keys[$key])) {
+				switch ($keys[$key])
+				{
+					case self::RMI_STORAGE_INT:
+						$storageData[$key] = (int) $value;
+						break;
+					case self::RMI_STORAGE_STRING:
+						$storageData[$key] = (string) $value;
+						break;
+					case self::RMI_STORAGE_BOOL:
+						$storageData[$key] = (bool) $value;
+						break;
+					case self::RMI_STORAGE_JSON_ARRAY:
+						$storageData[$key] = json_encode($value);
+						break;
+					case self::RMI_STORAGE_SIMPLE_ARRAY:
+						$storageData[$key] = json_decode(array_values($value));
+						break;
+					case self::RMI_STORAGE_DATE_OBJECT:
+						break;
+					case self::RMI_STORAGE_DATE_TIMESTAMP:
+						break;
+					case self::RMI_STORAGE_INCR:
+						break;
+					case self::RMI_STORAGE_DECR:
+						break;
+					case self::RMI_STORAGE_EXPIRE:
+						break;
+				}
+			}
+		}
 	}
 
 	public function deleteByStorage()
 	{
 		return (is_array($this->redisDeleteIndexKey))
-			? call_user_func_array(array($this->redis, 'hDel'), array_merge($this->redisKey, $this->redisDeleteIndexKey))
-			: $this->redis->hDel($this->redisKey, $this->redisDeleteIndexKey)
+			? call_user_func_array(array($this->redis, 'hDel'), array_merge($this->redisKey[self::REDIS_KEY_STORAGE], $this->redisDeleteIndexKey))
+			: $this->redis->hDel($this->redisKey[self::REDIS_KEY_STORAGE], $this->redisDeleteIndexKey)
 			;
 	}
 
 	public function countByStorage()
 	{
-		return $this->redis->hLen($this->redisKey);
+		return $this->redis->hLen(
+			$this->redisKey[self::REDIS_KEY_STORAGE]
+		);
 	}
 	// RmiStorage Functions
-
-
-
-
-
 
 	protected function normalizer($data = null, $stringKeys = null, $intKeys = null, $booleanKeys = null)
 	{
@@ -379,7 +441,7 @@ class Rmi
 
 		$hashKeys = null;
 		foreach ($keys as $key => $type) {
-			$hashKeys[$this->generatePatternKey($pattern, $key)] = $type;
+			$hashKeys[$type] = $this->generatePatternKey($pattern, $key);
 		}
 
 		return $hashKeys;
