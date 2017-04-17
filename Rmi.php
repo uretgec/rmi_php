@@ -1,5 +1,5 @@
 <?php
-namespace Rmi\Library;
+namespace Rmi;
 
 class Rmi
 {
@@ -37,8 +37,6 @@ class Rmi
 	public function __construct($config, $handleData = null)
 	{
 		$this->redisConfig = $config;
-
-		// TODO: Redis Connect Method Change
 		$this->redis = $this->connect();
 
 		// Handle Request
@@ -48,19 +46,19 @@ class Rmi
 
 	protected function connect($configId = 0)
 	{
-		if(!isset($this->redis[$configId])) {
+		if(!isset($this->redisConfig[$configId])) {
 			throw new RmiException(self::RMI_ERROR_000, array($configId));
 		}
 
-		list($host, $port, $auth, $db) = $this->redis[$configId];
+		list($host, $port, $auth, $db) = $this->redisConfig[$configId];
 		$redis = new \Redis();
-		$redis->setOption(\Redis::OPT_PREFIX, self::REDIS_PREFIX);
-		if(!$redis->pconnect($host, $port)) {
+		if(!$redis->pconnect($host, $port, 5)) {
 			throw new RmiException(self::RMI_ERROR_001, array($host, $port));
 		}
 		if($auth !== null && !$redis->auth($auth)) {
 			throw new RmiException(self::RMI_ERROR_002, array($host, $port));
 		}
+		$redis->setOption(\Redis::OPT_PREFIX, self::REDIS_PREFIX);
 
 		return $redis;
 	}
@@ -87,11 +85,7 @@ class Rmi
 			'type' => null,
 
 			// Patterns
-			'patterns' => array(
-				self::REDIS_KEY_LIMIT => '[id]',
-				self::REDIS_KEY_CACHE => '[paged][perpage]',
-				self::REDIS_KEY_STORAGE => '[key][id]'
-			),
+			'patterns' => null,
 
 			// Pattern Keys
 			'id' => null,
@@ -157,63 +151,42 @@ class Rmi
 	{
 		$patterns = $this->getHandleDataValue('patterns');
 		if($patterns === null) {
-			throw new RmiException();
+			// TODO: error code generate
+			throw new RmiException('TODO');
 		}
 
-		// RmiLimit Redis Keys
-		if(isset($patterns[self::REDIS_KEY_LIMIT])) {
-			// rmi:[type]
-			$this->redisKey[self::REDIS_KEY_LIMIT] = $this->generateKey(
-				$this->getHandleDataValue('type')
-			);
-
-			// Default Pattern: [pattern]
-			$this->redisIndexKey[self::REDIS_KEY_LIMIT] = $this->generatePatternKey($patterns[self::REDIS_KEY_LIMIT]);
+		$type = $this->getHandleDataValue('type');
+		foreach ($patterns as $key => $value) {
+			if($value !== null) {
+				$this->redisKey[$key] = $this->generateKey(array(
+					$type,
+					$key
+				));
+				$this->redisIndexKey[$key] = (self::REDIS_KEY_STORAGE == $key)
+					? $this->generateHashKey($value)
+					: $this->generatePatternKey($value)
+				;
+			}
 		}
-
-		// RmiCache Redis Keys
-		if(isset($patterns[self::REDIS_KEY_CACHE])) {
-			// rmi:[type]:cache
-			$this->redisKey[self::REDIS_KEY_CACHE] = $this->generateKey(array(
-				$this->getHandleDataValue('type'),
-				'cache'
-			));
-
-			// Default Pattern: [paged][perpage]
-			$this->redisIndexKey[self::REDIS_KEY_CACHE] = $this->generatePatternKey($patterns[self::REDIS_KEY_CACHE]);
-		}
-
-		// RmiStorage Redis Keys
-		if(isset($patterns[self::REDIS_KEY_STORAGE])) {
-			// rmi:[type]:storage
-			$this->redisKey[self::REDIS_KEY_STORAGE] = $this->generateKey(array(
-				$this->getHandleDataValue('type'),
-				self::REDIS_KEY_STORAGE
-			));
-
-			// Default Pattern: [paged][perpage]
-			$this->redisIndexKey[self::REDIS_KEY_STORAGE] = $this->generateHashKey($patterns[self::REDIS_KEY_CACHE]);
-		}
-
 	}
 
-	protected function getRedisKey($type)
-	{
-		if(!isset($this->redisKey[$type])) {
-			throw new RmiException();
-		}
-
-		return $this->redisKey[$type];
-	}
-
-	protected function getRedisIndexKey($type)
-	{
-		if(!isset($this->redisIndexKey[$type])) {
-			throw new RmiException();
-		}
-
-		return $this->redisIndexKey[$type];
-	}
+//	protected function getRedisKey($type)
+//	{
+//		if(!isset($this->redisKey[$type])) {
+//			throw new RmiException();
+//		}
+//
+//		return $this->redisKey[$type];
+//	}
+//
+//	protected function getRedisIndexKey($type)
+//	{
+//		if(!isset($this->redisIndexKey[$type])) {
+//			throw new RmiException();
+//		}
+//
+//		return $this->redisIndexKey[$type];
+//	}
 
 	// RmiLimit Functions
 
@@ -253,7 +226,7 @@ class Rmi
 		}
 	}
 
-	public function deleteByLimit()
+	protected function deleteByLimit()
 	{
 		// Always delete first (max) data
 		if($this->getHandleDataValue('id') !== null && $this->countByLimit() > $this->getHandleDataValue('max')) {
@@ -424,7 +397,7 @@ class Rmi
 		);
 	}
 
-	protected function generateKey($params = null)
+	protected function generateKey($params = null, $glue = ':')
 	{
 		return is_array($params)
 			? implode(':', $params)
@@ -432,29 +405,29 @@ class Rmi
 			;
 	}
 
-	protected function generateHashKey($pattern = null)
+	protected function generateHashKey($pattern = null, $keys = null)
 	{
-		$keys = $this->getHandleDataValue('keys');
+		$keys = ($keys !== null) ? $keys : $this->getHandleDataValue('keys');
 		if($keys === null || empty($keys) || !is_array($keys)) {
-			throw new RmiException();
+			throw new RmiException("asdasd");
 		}
-
 		$hashKeys = null;
 		foreach ($keys as $key => $type) {
-			$hashKeys[$type] = $this->generatePatternKey($pattern, $key);
+			$hashKeys[$key] = $this->generatePatternKey($pattern, $key);
 		}
 
 		return $hashKeys;
 	}
 
-	protected function generatePatternKey($pattern = null, $hashKey = null)
+	protected function generatePatternKey($pattern = null, $key = null)
 	{
-		preg_match('/(\w+)(?=])/', $pattern, $matchPattern);
+		preg_match_all('/(\w+)(?=])/', $pattern, $matchPattern);
+
 		if(count($matchPattern) > 0) {
 			$pattern = null;
-			foreach ($matchPattern as $item) {
-				if($hashKey !== null) {
-					$pattern[] = $hashKey;
+			foreach (current($matchPattern) as $item) {
+				if($key !== null && $item == 'key') {
+					$pattern[] = $key;
 				} elseif ($this->getHandleDataValue($item) !== null) {
 					$pattern[] = $this->getHandleDataValue($item);
 				}
@@ -472,5 +445,10 @@ class Rmi
 	protected function findLifetime($indexItem = null)
 	{
 		return preg_match('/^([^:]+)/', $indexItem, $lifeTime);
+	}
+
+	public function debug()
+	{
+		var_dump($this);
 	}
 }
