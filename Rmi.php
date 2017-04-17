@@ -286,7 +286,7 @@ class Rmi
 		}
 	}
 
-	public function deleteByCache()
+	protected function deleteByCache()
 	{
 		return $this->redis->hDel(
 			$this->redisKey[self::REDIS_KEY_CACHE],
@@ -444,7 +444,9 @@ class Rmi
 
 	protected function findLifetime($indexItem = null)
 	{
-		return preg_match('/^([^:]+)/', $indexItem, $lifeTime);
+		preg_match('/^([^:]+)/', $indexItem, $lifeTime);
+
+		return current($lifeTime);
 	}
 
 	public function debug()
