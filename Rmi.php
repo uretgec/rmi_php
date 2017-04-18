@@ -21,17 +21,15 @@ class Rmi
 	const RMI_STORAGE_BOOL 						= 3;
 	const RMI_STORAGE_JSON_ARRAY 			= 4;
 	const RMI_STORAGE_SIMPLE_ARRAY 		= 5;
-	const RMI_STORAGE_DATE_OBJECT 		= 6;
-	const RMI_STORAGE_DATE_TIMESTAMP 	= 7;
-	const RMI_STORAGE_INCR 						= 8;
-	const RMI_STORAGE_DECR 						= 9;
-	const RMI_STORAGE_EXPIRE 					= 10;
+	const RMI_STORAGE_TIMESTAMP 			= 6;
+	const RMI_STORAGE_INCR 						= 7;
+	const RMI_STORAGE_DECR 						= 8;
+	const RMI_STORAGE_EXPIRE 					= 9;
 
 	private $redis = null;
 	private $redisConfig = null;
 	private $redisKey = null;
 	private $redisIndexKey = null;
-	private $redisDeleteIndexKey = null;
 	protected $handleData = null;
 
 	public function __construct($config, $handleData = null)
@@ -305,6 +303,7 @@ class Rmi
 	// RmiStorage Functions
 	public function findByStorage()
 	{
+		// TODO control type is not true
 		$storageData = (is_array($this->redisIndexKey[self::REDIS_KEY_STORAGE]))
 			? $this->redis->hMGet($this->redisKey[self::REDIS_KEY_STORAGE], array_values($this->redisIndexKey[self::REDIS_KEY_STORAGE]))
 			: $this->redis->hGet($this->redisKey[self::REDIS_KEY_STORAGE], $this->redisIndexKey[self::REDIS_KEY_STORAGE])
@@ -313,50 +312,67 @@ class Rmi
 		return $storageData;
 	}
 
-	// TODO: stopped here
 	public function updateByStorage($storageData = null)
 	{
+		$hashKeys = null;
+		$indexKeys = $this->redisIndexKey[self::REDIS_KEY_STORAGE];
 		$keys = $this->getHandleDataValue('keys');
 		foreach ($storageData as $key => $value) {
 			if(isset($keys[$key]) && !empty($keys[$key])) {
 				switch ($keys[$key])
 				{
 					case self::RMI_STORAGE_INT:
-						$storageData[$key] = (int) $value;
+						$hashKeys[$indexKeys[$key]] = (int) $value;
 						break;
 					case self::RMI_STORAGE_STRING:
-						$storageData[$key] = (string) $value;
+						$hashKeys[$indexKeys[$key]] = (string) $value;
 						break;
 					case self::RMI_STORAGE_BOOL:
-						$storageData[$key] = (bool) $value;
+						$hashKeys[$indexKeys[$key]] = (bool) $value;
 						break;
 					case self::RMI_STORAGE_JSON_ARRAY:
-						$storageData[$key] = json_encode($value);
+						$hashKeys[$indexKeys[$key]] = json_encode($value);
 						break;
 					case self::RMI_STORAGE_SIMPLE_ARRAY:
-						$storageData[$key] = json_decode(array_values($value));
+						$hashKeys[$indexKeys[$key]] = json_encode(array_values($value));
 						break;
-					case self::RMI_STORAGE_DATE_OBJECT:
-						break;
-					case self::RMI_STORAGE_DATE_TIMESTAMP:
+					case self::RMI_STORAGE_TIMESTAMP:
+						$hashKeys[$indexKeys[$key]] = $value;
 						break;
 					case self::RMI_STORAGE_INCR:
+						$this->redis->hIncrBy($this->redisKey[self::REDIS_KEY_STORAGE], $indexKeys[$key], (int) $value);
 						break;
 					case self::RMI_STORAGE_DECR:
+						$this->redis->hIncrBy($this->redisKey[self::REDIS_KEY_STORAGE], $indexKeys[$key], -((int) $value));
 						break;
 					case self::RMI_STORAGE_EXPIRE:
+						$hashKeys[$indexKeys[$key]] = time() + (int) $value;
 						break;
 				}
 			}
 		}
+
+		if($hashKeys !== null && is_array($hashKeys) && count($hashKeys) > 0) {
+			$this->redis->hMset($this->redisKey[self::REDIS_KEY_STORAGE], $hashKeys);
+		}
 	}
 
-	public function deleteByStorage()
+	public function deleteByStorage($storageKeys = null)
 	{
-		return (is_array($this->redisDeleteIndexKey))
-			? call_user_func_array(array($this->redis, 'hDel'), array_merge($this->redisKey[self::REDIS_KEY_STORAGE], $this->redisDeleteIndexKey))
-			: $this->redis->hDel($this->redisKey[self::REDIS_KEY_STORAGE], $this->redisDeleteIndexKey)
-			;
+		$hashKeys = null;
+		if ($storageKeys !== null) {
+			$indexKeys = $this->redisIndexKey[self::REDIS_KEY_STORAGE];
+			$storageKeys = is_array($storageKeys) ? $storageKeys : (array) $storageKeys;
+			foreach ($storageKeys as $storageKey) {
+				if(isset($indexKeys[$storageKey])){
+					$hashKeys[] = $indexKeys[$storageKey];
+				}
+			}
+		}
+		return ($hashKeys !== null)
+			? call_user_func_array(array($this->redis, 'hDel'), array_merge( (array) $this->redisKey[self::REDIS_KEY_STORAGE], $hashKeys))
+			: false
+		;
 	}
 
 	public function countByStorage()
