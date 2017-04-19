@@ -1,6 +1,10 @@
 <?php
 namespace Rmi;
 
+/**
+ * Class Rmi
+ * @package Rmi
+ */
 class Rmi
 {
 	const REDIS_PREFIX = 'rmi:';
