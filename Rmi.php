@@ -14,6 +14,8 @@ class Rmi
 	const RMI_ERROR_000 = 'Redis config not found: %s';
 	const RMI_ERROR_001 = 'Could not connect redis server: %s:%s';
 	const RMI_ERROR_002 = 'Could not auth redis server: %s:%s';
+	const RMI_ERROR_003 = 'Hash Keys not generated!';
+	const RMI_ERROR_004 = 'Patterns not found!';
 
 	// Storage Types
 	const RMI_STORAGE_INT 						= 1;
@@ -149,8 +151,7 @@ class Rmi
 	{
 		$patterns = $this->getHandleDataValue('patterns');
 		if($patterns === null) {
-			// TODO: error code generate
-			throw new RmiException('TODO');
+			throw new RmiException(self::RMI_ERROR_004);
 		}
 
 		$type = $this->getHandleDataValue('type');
@@ -437,7 +438,7 @@ class Rmi
 	{
 		$keys = ($keys !== null) ? $keys : $this->getHandleDataValue('keys');
 		if($keys === null || empty($keys) || !is_array($keys)) {
-			throw new RmiException("asdasd");
+			throw new RmiException(self::RMI_ERROR_003);
 		}
 		$hashKeys = null;
 		foreach ($keys as $key => $type) {
