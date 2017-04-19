@@ -303,55 +303,14 @@ class Rmi
 	// RmiStorage Functions
 	public function findByStorage()
 	{
-		// TODO control type is not true
-		$storageData = (is_array($this->redisIndexKey[self::REDIS_KEY_STORAGE]))
-			? $this->redis->hMGet($this->redisKey[self::REDIS_KEY_STORAGE], array_values($this->redisIndexKey[self::REDIS_KEY_STORAGE]))
-			: $this->redis->hGet($this->redisKey[self::REDIS_KEY_STORAGE], $this->redisIndexKey[self::REDIS_KEY_STORAGE])
-		;
+		$storageData =  $this->redis->hMGet($this->redisKey[self::REDIS_KEY_STORAGE], array_values($this->redisIndexKey[self::REDIS_KEY_STORAGE]));
 
-		return $storageData;
+		return $this->_convertStorage($storageData, true);
 	}
 
-	public function updateByStorage($storageData = null)
+	public function updateByStorage($storageData = null, $reverse = false)
 	{
-		$hashKeys = null;
-		$indexKeys = $this->redisIndexKey[self::REDIS_KEY_STORAGE];
-		$keys = $this->getHandleDataValue('keys');
-		foreach ($storageData as $key => $value) {
-			if(isset($keys[$key]) && !empty($keys[$key])) {
-				switch ($keys[$key])
-				{
-					case self::RMI_STORAGE_INT:
-						$hashKeys[$indexKeys[$key]] = (int) $value;
-						break;
-					case self::RMI_STORAGE_STRING:
-						$hashKeys[$indexKeys[$key]] = (string) $value;
-						break;
-					case self::RMI_STORAGE_BOOL:
-						$hashKeys[$indexKeys[$key]] = (bool) $value;
-						break;
-					case self::RMI_STORAGE_JSON_ARRAY:
-						$hashKeys[$indexKeys[$key]] = json_encode($value);
-						break;
-					case self::RMI_STORAGE_SIMPLE_ARRAY:
-						$hashKeys[$indexKeys[$key]] = json_encode(array_values($value));
-						break;
-					case self::RMI_STORAGE_TIMESTAMP:
-						$hashKeys[$indexKeys[$key]] = $value;
-						break;
-					case self::RMI_STORAGE_INCR:
-						$this->redis->hIncrBy($this->redisKey[self::REDIS_KEY_STORAGE], $indexKeys[$key], (int) $value);
-						break;
-					case self::RMI_STORAGE_DECR:
-						$this->redis->hIncrBy($this->redisKey[self::REDIS_KEY_STORAGE], $indexKeys[$key], -((int) $value));
-						break;
-					case self::RMI_STORAGE_EXPIRE:
-						$hashKeys[$indexKeys[$key]] = time() + (int) $value;
-						break;
-				}
-			}
-		}
-
+		$hashKeys = $this->_convertStorage($storageData);
 		if($hashKeys !== null && is_array($hashKeys) && count($hashKeys) > 0) {
 			$this->redis->hMset($this->redisKey[self::REDIS_KEY_STORAGE], $hashKeys);
 		}
@@ -381,20 +340,73 @@ class Rmi
 			$this->redisKey[self::REDIS_KEY_STORAGE]
 		);
 	}
+
+	protected function _convertStorage($storageData = null, $reverse = false)
+	{
+		$hashKeys = null;
+		$indexKeys = $this->redisIndexKey[self::REDIS_KEY_STORAGE];
+		$reverseIndexKeys = ($reverse) ? array_flip($indexKeys) : $indexKeys;
+		$keys = $this->getHandleDataValue('keys');
+		foreach ($storageData as $key => $value) {
+			$key = ($reverse) ? $reverseIndexKeys[$key] : $key ;
+			if(isset($keys[$key]) && !empty($keys[$key])) {
+				switch ($keys[$key])
+				{
+					case self::RMI_STORAGE_INT:
+						$hashKeys[$indexKeys[$key]] = (int) $value;
+						break;
+					case self::RMI_STORAGE_STRING:
+						$hashKeys[$indexKeys[$key]] = (string) $value;
+						break;
+					case self::RMI_STORAGE_BOOL:
+						$hashKeys[$indexKeys[$key]] = (bool) $value;
+						break;
+					case self::RMI_STORAGE_JSON_ARRAY:
+						$hashKeys[$indexKeys[$key]] = ($reverse) ? json_decode($value, true) : json_encode($value);
+						break;
+					case self::RMI_STORAGE_SIMPLE_ARRAY:
+						$hashKeys[$indexKeys[$key]] = ($reverse) ? json_decode($value, true) : json_encode(array_values($value));
+						break;
+					case self::RMI_STORAGE_TIMESTAMP:
+						$hashKeys[$indexKeys[$key]] = (int) $value;
+						break;
+					case self::RMI_STORAGE_INCR:
+						if($reverse) {
+							$hashKeys[$indexKeys[$key]] = (int) $value;
+						} else {
+							$this->redis->hIncrBy($this->redisKey[self::REDIS_KEY_STORAGE], $indexKeys[$key], (int) $value);
+						}
+						break;
+					case self::RMI_STORAGE_DECR:
+						if($reverse) {
+							$hashKeys[$indexKeys[$key]] = (int) $value;
+						} else {
+							$this->redis->hIncrBy($this->redisKey[self::REDIS_KEY_STORAGE], $indexKeys[$key], -((int) $value));
+						}
+						break;
+					case self::RMI_STORAGE_EXPIRE:
+						$hashKeys[$indexKeys[$key]] = ($reverse) ? (int) $value : time() + (int) $value;
+						break;
+				}
+			}
+		}
+
+		return $hashKeys;
+	}
 	// RmiStorage Functions
 
-	protected function normalizer($data = null, $stringKeys = null, $intKeys = null, $booleanKeys = null)
-	{
-		array_walk_recursive($data, function(&$itemValue, &$itemKey) use($stringKeys, $intKeys, $booleanKeys) {
-			if(is_array($stringKeys) && count($stringKeys) > 0 && in_array($itemKey, $stringKeys, true)) {
-				$itemValue = (string) $itemValue;
-			} elseif(is_array($intKeys) && count($intKeys) > 0 && in_array($itemKey, $intKeys, true)) {
-				$itemValue = (int) $itemValue;
-			}elseif(is_array($booleanKeys) && count($booleanKeys) > 0 && in_array($itemKey, $booleanKeys, true)) {
-				$itemValue = (bool) $itemValue;
-			}
-		});
-	}
+//	protected function normalizer($data = null, $stringKeys = null, $intKeys = null, $booleanKeys = null)
+//	{
+//		array_walk_recursive($data, function(&$itemValue, &$itemKey) use($stringKeys, $intKeys, $booleanKeys) {
+//			if(is_array($stringKeys) && count($stringKeys) > 0 && in_array($itemKey, $stringKeys, true)) {
+//				$itemValue = (string) $itemValue;
+//			} elseif(is_array($intKeys) && count($intKeys) > 0 && in_array($itemKey, $intKeys, true)) {
+//				$itemValue = (int) $itemValue;
+//			}elseif(is_array($booleanKeys) && count($booleanKeys) > 0 && in_array($itemKey, $booleanKeys, true)) {
+//				$itemValue = (bool) $itemValue;
+//			}
+//		});
+//	}
 
 	protected function getMicroTime()
 	{
