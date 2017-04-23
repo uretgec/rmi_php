@@ -24,12 +24,14 @@ try
 		'keys' => array(
 			'goal' => Rmi::RMI_STORAGE_INCR,
 			'win' => Rmi::RMI_STORAGE_INCR,
+			'user_info' => Rmi::RMI_STORAGE_JSON_ARRAY,
 			'due_count' => Rmi::RMI_STORAGE_DECR,
 			'matchtime' => Rmi::RMI_STORAGE_TIMESTAMP,
 			'blocktime' => Rmi::RMI_STORAGE_EXPIRE
 		),
-		'page' => 2,
-		'perpage' => 20
+		'max' => 10,
+		'paged' => 1,
+		'perpage' => 10
 	);
 
 	// Init RmiManager
@@ -43,7 +45,7 @@ try
 		for ($i=0;$i<=52;$i++) {
 			$rmiManager->updateByLimit(array('key'=>'value', 'id' => $i));
 		}
-		$cacheData = $rmiManager->findByLimit(0, 5);
+		$cacheData = $rmiManager->findByLimit();
 		$rmiManager->updateByCache($cacheData, 60);
 	}
 
@@ -55,16 +57,22 @@ try
 		'win' => 1,
 		'matchtime' => time(),
 		'due_count' => 2,
-		'blocktime' => 25
+		'blocktime' => 25,
+		'user_info' => array(
+			'name' => 'User1',
+			'fulname' => 'First Second Name'
+		)
 	));
 
 	$hashData = $rmiManager->findByStorage();
 	$rmiManager->deleteByStorage('due_count');
-	$rmiManager->deleteByStorage(array('due_count', 'blocktime'));
+	$rmiManager->deleteByStorage(array('blocktime'));
 	var_dump($hashData);
 
+
+
 	// RmiDebug
-	$rmiManager->debug();
+//	$rmiManager->debug();
 
 } catch (RmiException $rmiException) {
 	echo $rmiException->getRmiMessage();

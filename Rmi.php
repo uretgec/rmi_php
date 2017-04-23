@@ -173,28 +173,15 @@ class Rmi
 		}
 	}
 
-//	protected function getRedisKey($type)
-//	{
-//		if(!isset($this->redisKey[$type])) {
-//			throw new RmiException();
-//		}
-//
-//		return $this->redisKey[$type];
-//	}
-//
-//	protected function getRedisIndexKey($type)
-//	{
-//		if(!isset($this->redisIndexKey[$type])) {
-//			throw new RmiException();
-//		}
-//
-//		return $this->redisIndexKey[$type];
-//	}
-
 	// RmiLimit Functions
 
-	public function findByLimit($offset = 0, $limit = 10)
+	public function findByLimit($limit = null)
 	{
+		$paged = $this->getHandleDataValue('paged');
+		$perpage = ($limit !== null) ? $limit : $this->getHandleDataValue('perpage');
+		$offset = (($paged - 1) * $perpage);
+		$limit = (($paged * $perpage) - 1);
+
 		$indexData = array();
 		$indexList = $this->redis->zRevRangeByScore(
 			$this->redisKey[self::REDIS_KEY_LIMIT],
@@ -208,7 +195,10 @@ class Rmi
 			}
 		}
 
-		return $indexData;
+		return array(
+			'list' => $indexData,
+			'pager' => $this->paginate($this->countByLimit(), $paged, $perpage)
+		);
 	}
 
 	/*
@@ -400,19 +390,6 @@ class Rmi
 	}
 	// RmiStorage Functions
 
-//	protected function normalizer($data = null, $stringKeys = null, $intKeys = null, $booleanKeys = null)
-//	{
-//		array_walk_recursive($data, function(&$itemValue, &$itemKey) use($stringKeys, $intKeys, $booleanKeys) {
-//			if(is_array($stringKeys) && count($stringKeys) > 0 && in_array($itemKey, $stringKeys, true)) {
-//				$itemValue = (string) $itemValue;
-//			} elseif(is_array($intKeys) && count($intKeys) > 0 && in_array($itemKey, $intKeys, true)) {
-//				$itemValue = (int) $itemValue;
-//			}elseif(is_array($booleanKeys) && count($booleanKeys) > 0 && in_array($itemKey, $booleanKeys, true)) {
-//				$itemValue = (bool) $itemValue;
-//			}
-//		});
-//	}
-
 	protected function getMicroTime()
 	{
 		list($usec, $sec) = explode(" ", microtime());
@@ -482,8 +459,37 @@ class Rmi
 		return current($lifeTime);
 	}
 
-	public function debug()
-	{
-		var_dump($this);
-	}
+//	public function debug()
+//	{
+//		var_dump($this);
+//	}
+//	protected function normalizer($data = null, $stringKeys = null, $intKeys = null, $booleanKeys = null)
+//	{
+//		array_walk_recursive($data, function(&$itemValue, &$itemKey) use($stringKeys, $intKeys, $booleanKeys) {
+//			if(is_array($stringKeys) && count($stringKeys) > 0 && in_array($itemKey, $stringKeys, true)) {
+//				$itemValue = (string) $itemValue;
+//			} elseif(is_array($intKeys) && count($intKeys) > 0 && in_array($itemKey, $intKeys, true)) {
+//				$itemValue = (int) $itemValue;
+//			}elseif(is_array($booleanKeys) && count($booleanKeys) > 0 && in_array($itemKey, $booleanKeys, true)) {
+//				$itemValue = (bool) $itemValue;
+//			}
+//		});
+//	}
+//	protected function getRedisKey($type)
+//	{
+//		if(!isset($this->redisKey[$type])) {
+//			throw new RmiException();
+//		}
+//
+//		return $this->redisKey[$type];
+//	}
+//
+//	protected function getRedisIndexKey($type)
+//	{
+//		if(!isset($this->redisIndexKey[$type])) {
+//			throw new RmiException();
+//		}
+//
+//		return $this->redisIndexKey[$type];
+//	}
 }
