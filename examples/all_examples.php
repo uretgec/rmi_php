@@ -69,8 +69,6 @@ try
 	$rmiManager->deleteByStorage(array('blocktime'));
 	var_dump($hashData);
 
-
-
 	// RmiDebug
 //	$rmiManager->debug();
 
