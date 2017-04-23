@@ -5,6 +5,8 @@ Rmi is basic Redis tool manager for php. Rmi has three tools.
 - RmiCache: Cache for RmiLimit Data with your own pattern and lifetime.
 - RmiStorage: Hash based data set and get with your own pattern.
 
+Rmi use phpredis for connect to Redis
+
 ## Options
 Required Fields:
 * type: Name of Data. matchresult, leaderboard, purchaseitem
